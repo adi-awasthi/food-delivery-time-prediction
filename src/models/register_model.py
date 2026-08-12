@@ -90,5 +90,22 @@ def promote_to_production(
 
 
 if __name__ == "__main__":
-    version = register_new_version()
-    print(f"Registered version {version}, aliased 'staging'.")
+    import sys
+
+    if "--promote" in sys.argv:
+        # Called explicitly by CI (Phase 11) only after pytest has already
+        # passed. promote_to_production() re-checks the threshold itself
+        # too, so this fails loudly (non-zero exit) rather than silently
+        # doing nothing if metrics.json is somehow stale or inconsistent
+        # with what the tests just validated.
+        result = promote_to_production()
+        print(result)
+        if not result["promoted"]:
+            print(
+                f"NOT promoted: test_mae {result['test_mae']} exceeds "
+                f"threshold {result['threshold']}"
+            )
+            sys.exit(1)
+    else:
+        version = register_new_version()
+        print(f"Registered version {version}, aliased 'staging'.")

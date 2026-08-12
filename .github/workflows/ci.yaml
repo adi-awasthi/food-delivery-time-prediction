@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'params.yaml'
+      - 'dvc.yaml'
+      - 'dvc.lock'
+      - 'requirements.txt'
+  workflow_dispatch:
+
+env:
+  MLFLOW_TRACKING_URI: https://dagshub.com/adi-awasthi/food-delivery-time-prediction.mlflow
+  MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+  MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
+
+jobs:
+  test-and-promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Configure DVC remote auth
+        run: |
+          dvc remote modify origin --local auth basic
+          dvc remote modify origin --local user "${{ secrets.DAGSHUB_USERNAME }}"
+          dvc remote modify origin --local password "${{ secrets.DAGSHUB_TOKEN }}"
+
+      - name: Pull DVC-tracked data/model artifacts
+        run: dvc pull data/processed/train.csv data/processed/test.csv models/preprocessor.joblib
+
+      - name: Run pytest (registry health + promotion gate)
+        run: pytest tests/ -v
+
+      - name: Promote staging model to production
+        if: success()
+        run: python -m src.models.register_model --promote

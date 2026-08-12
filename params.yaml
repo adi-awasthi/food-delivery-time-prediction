@@ -1,9 +1,12 @@
 # Central place for pipeline hyperparameters and thresholds.
 # Every DVC stage reads its inputs from here instead of hardcoding values in scripts.
-# Sections are filled in as we build the corresponding phase.
 
-data_cleaning: {}
-# Phase 2
+data_cleaning:
+  # Empirically verified in Phase 2: across all 43,862 rows where both
+  # Time_Orderd and Time_Order_picked are known, the gap between them takes
+  # on exactly one of {5, 10, 15} minutes, split almost evenly three ways.
+  # Used to impute missing Time_Orderd as Time_Order_picked minus this gap.
+  order_to_pickup_imputation_gap_minutes: 10
 
 data_split:
   test_size: 0.2
@@ -26,17 +29,19 @@ preprocessing:
     - time_period
 
 train:
-  baseline: {}
-  # Phase 5
-  random_forest: {}
-  # Phase 6
-  lightgbm: {}
-  # Phase 6
-  stacking: {}
-  # Phase 6
+  lightgbm:
+    # Best config found via RandomizedSearchCV in Phase 6 Step 4
+    # (CV MAE 3.089 +/- 0.017, selected over RF/Stacking -- see MLflow run
+    # lgbm_tuned_best, tagged selected_for_deployment=true).
+    learning_rate: 0.01
+    num_leaves: 127
+    n_estimators: 500
+    reg_alpha: 0.1
+    reg_lambda: 0
+    random_state: 42
 
-evaluation: {}
-# Phase 8 — MAE threshold for production promotion, with documented rationale
+evaluation:
+  cv_folds: 5
 
 mlflow:
   tracking_uri: https://dagshub.com/adi-awasthi/food-delivery-time-prediction.mlflow

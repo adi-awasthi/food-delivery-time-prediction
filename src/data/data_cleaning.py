@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import yaml
 
 RAW_DATA_PATH = "data/raw/swiggy.csv"
 
@@ -178,9 +179,6 @@ def fill_remaining_categorical_missing(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-ORDER_TO_PICKUP_IMPUTATION_GAP_MINUTES = 10
-
-
 def build_order_datetime(df: pd.DataFrame) -> pd.DataFrame:
     """
     Combines Order_Date with Time_Orderd into order_datetime. NaT wherever
@@ -193,16 +191,19 @@ def build_order_datetime(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def impute_missing_order_datetime(df: pd.DataFrame) -> pd.DataFrame:
+def impute_missing_order_datetime(
+    df: pd.DataFrame, gap_minutes: int
+) -> pd.DataFrame:
     """
-    Fills missing order_datetime from Time_Order_picked minus a fixed
-    10-minute gap. This is not a generic "typical order-to-pickup time"
-    assumption -- across all 43,862 rows where both Time_Orderd and
-    Time_Order_picked are known, the gap between them takes on exactly one of
-    three values (5, 10, or 15 minutes), split almost evenly three ways, with
-    no other value ever observed. Subtracting the median/most-central gap
-    (10 min) is therefore correct to within +/-5 minutes on every row, not a
-    rough average with a long tail.
+    Fills missing order_datetime from Time_Order_picked minus a fixed gap
+    (gap_minutes, read from params.yaml -- data_cleaning.order_to_pickup_imputation_gap_minutes).
+    This is not a generic "typical order-to-pickup time" assumption --
+    across all 43,862 rows where both Time_Orderd and Time_Order_picked are
+    known, the gap between them takes on exactly one of three values (5, 10,
+    or 15 minutes), split almost evenly three ways, with no other value ever
+    observed. Subtracting the median/most-central gap (10 min) is therefore
+    correct to within +/-5 minutes on every row, not a rough average with a
+    long tail.
 
     Order_Date always matches Time_Orderd's calendar day, not
     Time_Order_picked's -- confirmed on real rows where pickup happens just
@@ -221,8 +222,8 @@ def impute_missing_order_datetime(df: pd.DataFrame) -> pd.DataFrame:
         df.loc[missing, "Order_Date"], format="%d-%m-%Y"
     )
     picked_time_of_day = pd.to_timedelta(df.loc[missing, "Time_Order_picked"])
-    gap = pd.Timedelta(minutes=ORDER_TO_PICKUP_IMPUTATION_GAP_MINUTES)
-    order_time_of_day = (picked_time_of_day - gap) % pd.Timedelta(days=1)
+    gap = pd.to_timedelta(gap_minutes, unit="m")
+    order_time_of_day = (picked_time_of_day - gap) % pd.to_timedelta(1, unit="D")
 
     df.loc[missing, "order_datetime"] = order_date_midnight + order_time_of_day
     return df
@@ -291,10 +292,13 @@ def add_time_of_day_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 INTERIM_DATA_PATH = "data/interim/swiggy_cleaned.csv"
+PARAMS_PATH = "params.yaml"
 
 
 def run_cleaning_pipeline(
-    input_path: str = RAW_DATA_PATH, output_path: str = INTERIM_DATA_PATH
+    input_path: str = RAW_DATA_PATH,
+    output_path: str = INTERIM_DATA_PATH,
+    params_path: str = PARAMS_PATH,
 ) -> pd.DataFrame:
     """
     Pre-split-safe cleaning pipeline: everything here is either a
@@ -304,6 +308,10 @@ def run_cleaning_pipeline(
     still has missing values in Delivery_person_Age and
     Delivery_person_Ratings by design.
     """
+    with open(params_path) as f:
+        params = yaml.safe_load(f)
+    gap_minutes = params["data_cleaning"]["order_to_pickup_imputation_gap_minutes"]
+
     df = load_raw_data(input_path)
     df = normalize_missing_values(df)
     df = cast_person_numeric_columns(df)
@@ -313,7 +321,7 @@ def run_cleaning_pipeline(
     df = normalize_city_spelling(df)
     df = fill_remaining_categorical_missing(df)
     df = build_order_datetime(df)
-    df = impute_missing_order_datetime(df)
+    df = impute_missing_order_datetime(df, gap_minutes)
     df = add_distance_feature(df)
     df = add_time_of_day_features(df)
     df = drop_raw_datetime_columns(df)

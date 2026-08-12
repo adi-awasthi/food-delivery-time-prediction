@@ -1,34 +1,13 @@
 import joblib
 import pandas as pd
+import yaml
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from src.data.data_preparation import (
-    load_cleaned_data,
-    split_train_test,
-    impute_person_columns,
-)
 from src.features.build_features import add_time_period_feature
 
 TARGET_COLUMN = "Time_taken(min)"
 DROP_COLUMNS = ["ID", "Delivery_person_ID", "order_datetime"]
-
-# Ordered categories for genuinely ordinal columns. "Unknown" (the
-# missing-value placeholder from Phase 2) is intentionally excluded from
-# this order and mapped to a fixed -1 instead -- see encode_ordinal_columns.
-ORDINAL_COLUMNS = {
-    "Road_traffic_density": ["Low", "Medium", "High", "Jam"],
-    "multiple_deliveries": ["0", "1", "2", "3"],
-}
-
-ONEHOT_COLUMNS = [
-    "Weatherconditions",
-    "Type_of_order",
-    "Type_of_vehicle",
-    "Festival",
-    "City",
-    "time_period",
-]
 
 # Restaurant_latitude/longitude and Delivery_location_latitude/longitude are
 # deliberately excluded here. distance_km is a deterministic function of
@@ -45,8 +24,23 @@ NUMERIC_COLUMNS = [
     "Vehicle_condition",
 ]
 
+PREPARED_TRAIN_PATH = "data/interim/train.csv"
+PREPARED_TEST_PATH = "data/interim/test.csv"
+PREPROCESSOR_ARTIFACT_PATH = "models/preprocessor.joblib"
+PROCESSED_TRAIN_PATH = "data/processed/train.csv"
+PROCESSED_TEST_PATH = "data/processed/test.csv"
+PARAMS_PATH = "params.yaml"
 
-def encode_ordinal_columns(df: pd.DataFrame) -> pd.DataFrame:
+
+def load_prepared_data(
+    train_path: str = PREPARED_TRAIN_PATH, test_path: str = PREPARED_TEST_PATH
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    train_df = pd.read_csv(train_path, parse_dates=["order_datetime"])
+    test_df = pd.read_csv(test_path, parse_dates=["order_datetime"])
+    return train_df, test_df
+
+
+def encode_ordinal_columns(df: pd.DataFrame, ordinal_columns: dict) -> pd.DataFrame:
     """
     Manual dict-based mapping instead of sklearn's OrdinalEncoder, so
     "Unknown" can be pinned to a fixed code (-1) outside the real 0..n-1
@@ -56,10 +50,10 @@ def encode_ordinal_columns(df: pd.DataFrame) -> pd.DataFrame:
     it's safe to apply before or after the split with no leakage risk.
     """
     df = df.copy()
-    for col, order in ORDINAL_COLUMNS.items():
+    for col, order in ordinal_columns.items():
         mapping = {category: rank for rank, category in enumerate(order)}
         df[f"{col}_ordinal"] = df[col].map(mapping).fillna(-1).astype(int)
-    return df.drop(columns=list(ORDINAL_COLUMNS.keys()))
+    return df.drop(columns=list(ordinal_columns.keys()))
 
 
 def split_features_target(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
@@ -69,8 +63,8 @@ def split_features_target(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     return X, y
 
 
-def build_preprocessor() -> ColumnTransformer:
-    scaled_columns = NUMERIC_COLUMNS + [f"{c}_ordinal" for c in ORDINAL_COLUMNS]
+def build_preprocessor(ordinal_columns: dict, onehot_columns: list) -> ColumnTransformer:
+    scaled_columns = NUMERIC_COLUMNS + [f"{c}_ordinal" for c in ordinal_columns]
     return ColumnTransformer(
         transformers=[
             # StandardScaler here is for the Linear Regression baseline's
@@ -83,40 +77,37 @@ def build_preprocessor() -> ColumnTransformer:
             (
                 "onehot",
                 OneHotEncoder(handle_unknown="ignore", sparse_output=False),
-                ONEHOT_COLUMNS,
+                onehot_columns,
             ),
         ]
     )
 
 
-PREPROCESSOR_ARTIFACT_PATH = "models/preprocessor.joblib"
-PROCESSED_TRAIN_PATH = "data/processed/train.csv"
-PROCESSED_TEST_PATH = "data/processed/test.csv"
-
-
 def run_preprocessing_pipeline(
-    test_size: float = 0.2,
-    random_state: int = 42,
+    train_input_path: str = PREPARED_TRAIN_PATH,
+    test_input_path: str = PREPARED_TEST_PATH,
     preprocessor_output_path: str = PREPROCESSOR_ARTIFACT_PATH,
     train_output_path: str = PROCESSED_TRAIN_PATH,
     test_output_path: str = PROCESSED_TEST_PATH,
+    params_path: str = PARAMS_PATH,
 ):
-    df = load_cleaned_data()
-    train_df, test_df = split_train_test(df, test_size, random_state)
+    with open(params_path) as f:
+        params = yaml.safe_load(f)["preprocessing"]
+    ordinal_columns = params["ordinal_columns"]
+    onehot_columns = params["onehot_columns"]
 
-    # fit-on-train-only imputation, deferred from Phase 2
-    train_df, test_df = impute_person_columns(train_df, test_df)
+    train_df, test_df = load_prepared_data(train_input_path, test_input_path)
 
     # deterministic feature engineering / encoding, safe on both splits
     train_df = add_time_period_feature(train_df)
     test_df = add_time_period_feature(test_df)
-    train_df = encode_ordinal_columns(train_df)
-    test_df = encode_ordinal_columns(test_df)
+    train_df = encode_ordinal_columns(train_df, ordinal_columns)
+    test_df = encode_ordinal_columns(test_df, ordinal_columns)
 
     X_train, y_train = split_features_target(train_df)
     X_test, y_test = split_features_target(test_df)
 
-    preprocessor = build_preprocessor()
+    preprocessor = build_preprocessor(ordinal_columns, onehot_columns)
     X_train_processed = preprocessor.fit_transform(X_train)
     X_test_processed = preprocessor.transform(X_test)
     feature_names = list(preprocessor.get_feature_names_out())

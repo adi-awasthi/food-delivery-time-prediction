@@ -1,0 +1,168 @@
+schema: '2.0'
+stages:
+  data_cleaning:
+    cmd: python -m src.data.data_cleaning
+    deps:
+    - path: data/raw/swiggy.csv
+      hash: md5
+      md5: 0b050b37dfe6cfbfaa18d7cb4e454377
+      size: 7772212
+    - path: src/data/data_cleaning.py
+      hash: md5
+      md5: 5213605ed9f7315d87e44fcbc1ab99ba
+      size: 13032
+    params:
+      params.yaml:
+        data_cleaning:
+          order_to_pickup_imputation_gap_minutes: 10
+    outs:
+    - path: data/interim/swiggy_cleaned.csv
+      hash: md5
+      md5: a4ff2b7ed1ca4c99240a5409b886a596
+      size: 6884979
+  data_preparation:
+    cmd: python -m src.data.data_preparation
+    deps:
+    - path: data/interim/swiggy_cleaned.csv
+      hash: md5
+      md5: a4ff2b7ed1ca4c99240a5409b886a596
+      size: 6884979
+    - path: src/data/data_cleaning.py
+      hash: md5
+      md5: 5213605ed9f7315d87e44fcbc1ab99ba
+      size: 13032
+    - path: src/data/data_preparation.py
+      hash: md5
+      md5: bb293efdfab1bab2fe589659906cbff1
+      size: 2675
+    params:
+      params.yaml:
+        data_split:
+          test_size: 0.2
+          random_state: 42
+    outs:
+    - path: data/interim/test.csv
+      hash: md5
+      md5: 909745d4f5d6f3d9564aa368b56b4845
+      size: 1379090
+    - path: data/interim/train.csv
+      hash: md5
+      md5: 66c17ce5cb63ff9c0620bf52b1d7be7e
+      size: 5515384
+  data_preprocessing:
+    cmd: python -m src.features.preprocessing
+    deps:
+    - path: data/interim/test.csv
+      hash: md5
+      md5: 909745d4f5d6f3d9564aa368b56b4845
+      size: 1379090
+    - path: data/interim/train.csv
+      hash: md5
+      md5: 66c17ce5cb63ff9c0620bf52b1d7be7e
+      size: 5515384
+    - path: src/features/build_features.py
+      hash: md5
+      md5: 8730f660454efc5507a69a299630fc86
+      size: 650
+    - path: src/features/preprocessing.py
+      hash: md5
+      md5: 885e62234aaf3b036cca2f235d88c9be
+      size: 5362
+    params:
+      params.yaml:
+        preprocessing:
+          ordinal_columns:
+            Road_traffic_density:
+            - Low
+            - Medium
+            - High
+            - Jam
+            multiple_deliveries:
+            - '0'
+            - '1'
+            - '2'
+            - '3'
+          onehot_columns:
+          - Weatherconditions
+          - Type_of_order
+          - Type_of_vehicle
+          - Festival
+          - City
+          - time_period
+    outs:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: 1bdd6603e8ea3e2ed85b210f02120814
+      size: 2228978
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 5ca61e109bc5a780feaa06ac28814a78
+      size: 8913707
+    - path: models/preprocessor.joblib
+      hash: md5
+      md5: fa0eb283b9082a0e34243915c548f595
+      size: 4730
+  train:
+    cmd: python -m src.models.train
+    deps:
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 5ca61e109bc5a780feaa06ac28814a78
+      size: 8913707
+    - path: src/models/train.py
+      hash: md5
+      md5: 5f2a13fb26796d894ae917f9756e4bc8
+      size: 954
+    - path: src/models/train_utils.py
+      hash: md5
+      md5: 4d0546c2341fbbe6f90cc735edf77089
+      size: 933
+    params:
+      params.yaml:
+        train.lightgbm:
+          learning_rate: 0.01
+          num_leaves: 127
+          n_estimators: 500
+          reg_alpha: 0.1
+          reg_lambda: 0
+          random_state: 42
+    outs:
+    - path: models/model.joblib
+      hash: md5
+      md5: ea956d996af7fb2584a7a5c7c01b20d1
+      size: 5761639
+  evaluation:
+    cmd: python -m src.models.evaluate
+    deps:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: 1bdd6603e8ea3e2ed85b210f02120814
+      size: 2228978
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 5ca61e109bc5a780feaa06ac28814a78
+      size: 8913707
+    - path: models/model.joblib
+      hash: md5
+      md5: ea956d996af7fb2584a7a5c7c01b20d1
+      size: 5761639
+    - path: src/models/evaluate.py
+      hash: md5
+      md5: 55c715383fd038e661e2faf439f5f4c2
+      size: 2220
+    params:
+      params.yaml:
+        evaluation:
+          cv_folds: 5
+        train.lightgbm:
+          learning_rate: 0.01
+          num_leaves: 127
+          n_estimators: 500
+          reg_alpha: 0.1
+          reg_lambda: 0
+          random_state: 42
+    outs:
+    - path: metrics.json
+      hash: md5
+      md5: 8ebdc6a0827176fe3373a446adbedc45
+      size: 146

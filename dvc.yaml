@@ -1,0 +1,61 @@
+stages:
+  data_cleaning:
+    cmd: python -m src.data.data_cleaning
+    deps:
+      - src/data/data_cleaning.py
+      - data/raw/swiggy.csv
+    params:
+      - data_cleaning
+    outs:
+      - data/interim/swiggy_cleaned.csv
+
+  data_preparation:
+    cmd: python -m src.data.data_preparation
+    deps:
+      - src/data/data_preparation.py
+      - src/data/data_cleaning.py
+      - data/interim/swiggy_cleaned.csv
+    params:
+      - data_split
+    outs:
+      - data/interim/train.csv
+      - data/interim/test.csv
+
+  data_preprocessing:
+    cmd: python -m src.features.preprocessing
+    deps:
+      - src/features/preprocessing.py
+      - src/features/build_features.py
+      - data/interim/train.csv
+      - data/interim/test.csv
+    params:
+      - preprocessing
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - models/preprocessor.joblib
+
+  train:
+    cmd: python -m src.models.train
+    deps:
+      - src/models/train.py
+      - src/models/train_utils.py
+      - data/processed/train.csv
+    params:
+      - train.lightgbm
+    outs:
+      - models/model.joblib
+
+  evaluation:
+    cmd: python -m src.models.evaluate
+    deps:
+      - src/models/evaluate.py
+      - models/model.joblib
+      - data/processed/train.csv
+      - data/processed/test.csv
+    params:
+      - train.lightgbm
+      - evaluation
+    metrics:
+      - metrics.json:
+          cache: false

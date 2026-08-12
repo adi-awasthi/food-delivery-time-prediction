@@ -33,7 +33,13 @@ stages:
     outs:
       - data/processed/train.csv
       - data/processed/test.csv
-      - models/preprocessor.joblib
+      # cache: false -- this file is tiny (~5KB) and needs to be present in
+      # a plain git checkout for Docker builds (Phase 12) without requiring
+      # DVC credentials during image build. DVC still tracks it as a stage
+      # output for reproducibility bookkeeping, just doesn't store/push its
+      # bytes through the DVC remote -- it's committed to git directly.
+      - models/preprocessor.joblib:
+          cache: false
 
   train:
     cmd: python -m src.models.train
@@ -69,4 +75,11 @@ stages:
     params:
       - registry
       - mlflow
+    outs:
+      # Without a real output, DVC treats a stage as always-outdated and
+      # reruns it on every `dvc repro` regardless of whether deps changed --
+      # this file is what makes register_model properly skippable instead
+      # of silently registering a duplicate version each time.
+      - models/registered_version.json:
+          cache: false
 

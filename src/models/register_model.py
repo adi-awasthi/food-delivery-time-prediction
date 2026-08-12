@@ -6,6 +6,7 @@ from src.models.train_utils import load_params, setup_mlflow
 
 METRICS_PATH = "metrics.json"
 PARAMS_PATH = "params.yaml"
+REGISTERED_VERSION_PATH = "models/registered_version.json"
 
 
 def _get_latest_evaluation_run(client: mlflow.tracking.MlflowClient, params: dict):
@@ -25,13 +26,22 @@ def _get_latest_evaluation_run(client: mlflow.tracking.MlflowClient, params: dic
     return client.get_run(runs[0].info.run_id)
 
 
-def register_new_version(params_path: str = PARAMS_PATH) -> str:
+def register_new_version(
+    params_path: str = PARAMS_PATH,
+    output_path: str = REGISTERED_VERSION_PATH,
+) -> str:
     """
     Registers the model produced by the most recent pipeline evaluation run,
     creating the registered model if it doesn't exist yet, and always
     aliases the new version "staging" -- this only marks "latest trained
-    candidate", it never promotes to production. Safe to run on every
-    `dvc repro`: it never silently changes what's currently serving.
+    candidate", it never promotes to production.
+
+    Writes output_path as a real DVC-tracked output (see dvc.yaml) recording
+    which run/version this registered. This is not just informational --
+    without a real output, DVC's register_model stage has nothing to hash
+    and treats the stage as always-outdated, silently re-registering a new
+    (duplicate) version on every `dvc repro` even when nothing changed
+    upstream. This file is what makes the stage properly skippable.
     """
     params = load_params(params_path)
     model_name = params["registry"]["model_name"]
@@ -48,6 +58,17 @@ def register_new_version(params_path: str = PARAMS_PATH) -> str:
 
     result = mlflow.register_model(model_uri, model_name)
     client.set_registered_model_alias(model_name, "staging", result.version)
+
+    with open(output_path, "w") as f:
+        json.dump(
+            {
+                "model_name": model_name,
+                "version": result.version,
+                "source_run_id": run.info.run_id,
+            },
+            f,
+            indent=2,
+        )
 
     return result.version
 

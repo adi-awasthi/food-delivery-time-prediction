@@ -176,8 +176,8 @@ stages:
       size: 146
     - path: src/models/register_model.py
       hash: md5
-      md5: 7450a76b003d8ff2348860ed3691e776
-      size: 3289
+      md5: dbde9df3a17938158308cac7885f2cd2
+      size: 4705
     - path: src/models/train_utils.py
       hash: md5
       md5: 4d0546c2341fbbe6f90cc735edf77089
@@ -190,3 +190,8 @@ stages:
           experiment_name: food-delivery-time-prediction
         registry:
           model_name: food-delivery-time-lightgbm
+    outs:
+    - path: models/registered_version.json
+      hash: md5
+      md5: 8bfbc2d5488dac7c6d8ada92ab760f7e
+      size: 123

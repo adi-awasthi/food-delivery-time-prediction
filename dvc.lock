@@ -154,6 +154,7 @@ stages:
       params.yaml:
         evaluation:
           cv_folds: 5
+          promotion_mae_threshold: 3.14
         train.lightgbm:
           learning_rate: 0.01
           num_leaves: 127
@@ -166,3 +167,26 @@ stages:
       hash: md5
       md5: 8ebdc6a0827176fe3373a446adbedc45
       size: 146
+  register_model:
+    cmd: python -m src.models.register_model
+    deps:
+    - path: metrics.json
+      hash: md5
+      md5: 8ebdc6a0827176fe3373a446adbedc45
+      size: 146
+    - path: src/models/register_model.py
+      hash: md5
+      md5: 7450a76b003d8ff2348860ed3691e776
+      size: 3289
+    - path: src/models/train_utils.py
+      hash: md5
+      md5: 4d0546c2341fbbe6f90cc735edf77089
+      size: 933
+    params:
+      params.yaml:
+        mlflow:
+          tracking_uri: 
+            https://dagshub.com/adi-awasthi/food-delivery-time-prediction.mlflow
+          experiment_name: food-delivery-time-prediction
+        registry:
+          model_name: food-delivery-time-lightgbm

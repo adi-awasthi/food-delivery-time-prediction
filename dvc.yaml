@@ -59,3 +59,14 @@ stages:
     metrics:
       - metrics.json:
           cache: false
+
+  register_model:
+    cmd: python -m src.models.register_model
+    deps:
+      - src/models/register_model.py
+      - src/models/train_utils.py
+      - metrics.json
+    params:
+      - registry
+      - mlflow
+

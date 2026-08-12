@@ -42,6 +42,18 @@ train:
 
 evaluation:
   cv_folds: 5
+  # Promotion gate for the model registry (Phase 8): a newly trained model's
+  # test_mae must be <= this value to get the "production" alias. Derived
+  # from this model's own measured CV noise, not an arbitrary number:
+  # current CV MAE mean (3.08846) + 3 * current CV MAE std (0.01695) =
+  # 3.139, rounded to 3.14. 3 standard deviations is a standard statistical
+  # convention for "this is a real regression, not ordinary retraining
+  # noise" (~99.7% confidence), so a future retrain has to be genuinely
+  # worse to fail this gate, not just unlucky on one CV split.
+  promotion_mae_threshold: 3.14
+
+registry:
+  model_name: food-delivery-time-lightgbm
 
 mlflow:
   tracking_uri: https://dagshub.com/adi-awasthi/food-delivery-time-prediction.mlflow

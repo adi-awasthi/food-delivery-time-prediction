@@ -1,1 +1,17 @@
 .dvc/config.local
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# secrets / local env
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# local MLflow artifacts (we track experiments on DagsHub, not locally)
+mlruns/
+mlartifacts/

@@ -1,0 +1,29 @@
+# Central place for pipeline hyperparameters and thresholds.
+# Every DVC stage reads its inputs from here instead of hardcoding values in scripts.
+# Sections are filled in as we build the corresponding phase.
+
+data_cleaning: {}
+# Phase 2
+
+data_split: {}
+# Phase 4 — e.g. test_size, random_state
+
+preprocessing: {}
+# Phase 4 — e.g. which columns are encoded/scaled
+
+train:
+  baseline: {}
+  # Phase 5
+  random_forest: {}
+  # Phase 6
+  lightgbm: {}
+  # Phase 6
+  stacking: {}
+  # Phase 6
+
+evaluation: {}
+# Phase 8 — MAE threshold for production promotion, with documented rationale
+
+mlflow:
+  tracking_uri: https://dagshub.com/adi-awasthi/food-delivery-time-prediction.mlflow
+  experiment_name: food-delivery-time-prediction

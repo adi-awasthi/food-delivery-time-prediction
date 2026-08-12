@@ -5,11 +5,25 @@
 data_cleaning: {}
 # Phase 2
 
-data_split: {}
-# Phase 4 — e.g. test_size, random_state
+data_split:
+  test_size: 0.2
+  random_state: 42
 
-preprocessing: {}
-# Phase 4 — e.g. which columns are encoded/scaled
+preprocessing:
+  # Ordered categories for genuinely ordinal columns. "Unknown" (the
+  # missing-value placeholder from Phase 2) is deliberately NOT part of this
+  # order -- it's encoded separately as -1 so it isn't mistaken for "beyond
+  # the highest real category" by a linear model.
+  ordinal_columns:
+    Road_traffic_density: [Low, Medium, High, Jam]
+    multiple_deliveries: ["0", "1", "2", "3"]
+  onehot_columns:
+    - Weatherconditions
+    - Type_of_order
+    - Type_of_vehicle
+    - Festival
+    - City
+    - time_period
 
 train:
   baseline: {}

@@ -6,6 +6,8 @@ import joblib
 import mlflow
 import pandas as pd
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.data.data_cleaning import add_distance_feature, add_time_of_day_features
@@ -38,6 +40,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Food Delivery Time Prediction API", lifespan=lifespan)
+
+# Optional interview-demo page -- purely static, doesn't touch /predict's
+# logic. Mounted under /static (idiomatic FastAPI static serving) with a
+# /demo alias so it's reachable at the short, memorable path.
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/demo")
+def demo_page():
+    return FileResponse("static/demo.html")
 
 
 class DeliveryPredictionRequest(BaseModel):

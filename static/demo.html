@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Food Delivery Time Prediction — Demo</title>
+<style>
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    max-width: 640px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    color: #1a1a1a;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+  p.sub { color: #666; margin-top: 0; margin-bottom: 1.5rem; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem; }
+  label { display: flex; flex-direction: column; font-size: 0.85rem; color: #333; }
+  label span { margin-bottom: 0.25rem; font-weight: 600; }
+  input, select {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.9rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  button {
+    grid-column: 1 / -1;
+    margin-top: 0.5rem;
+    padding: 0.6rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    background: #2563eb;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:hover { background: #1d4ed8; }
+  #result {
+    grid-column: 1 / -1;
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 6px;
+    font-size: 1.1rem;
+    display: none;
+  }
+  #result.ok { background: #ecfdf5; border: 1px solid #10b981; color: #065f46; display: block; }
+  #result.err { background: #fef2f2; border: 1px solid #ef4444; color: #991b1b; display: block; }
+</style>
+</head>
+<body>
+  <h1>Food Delivery Time Prediction</h1>
+  <p class="sub">Demo form -- posts to <code>/predict</code> on this same server.</p>
+
+  <form id="predict-form">
+    <label><span>Delivery person age</span>
+      <input type="number" name="Delivery_person_Age" value="29" min="15" max="50" required>
+    </label>
+    <label><span>Delivery person rating</span>
+      <input type="number" name="Delivery_person_Ratings" value="4.6" min="1" max="5" step="0.1" required>
+    </label>
+
+    <label><span>Restaurant latitude</span>
+      <input type="number" name="Restaurant_latitude" value="12.9716" step="any" required>
+    </label>
+    <label><span>Restaurant longitude</span>
+      <input type="number" name="Restaurant_longitude" value="77.5946" step="any" required>
+    </label>
+
+    <label><span>Delivery location latitude</span>
+      <input type="number" name="Delivery_location_latitude" value="13.0100" step="any" required>
+    </label>
+    <label><span>Delivery location longitude</span>
+      <input type="number" name="Delivery_location_longitude" value="77.6400" step="any" required>
+    </label>
+
+    <label><span>Vehicle condition (0-3)</span>
+      <input type="number" name="Vehicle_condition" value="2" min="0" max="3" required>
+    </label>
+    <label><span>Order datetime</span>
+      <input type="datetime-local" name="order_datetime" value="2026-08-12T19:30" required>
+    </label>
+
+    <label><span>Road traffic density</span>
+      <select name="Road_traffic_density" required>
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+        <option value="Jam" selected>Jam</option>
+        <option value="Unknown">Unknown</option>
+      </select>
+    </label>
+    <label><span>Multiple deliveries</span>
+      <select name="multiple_deliveries" required>
+        <option value="0">0</option>
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="Unknown">Unknown</option>
+      </select>
+    </label>
+
+    <label><span>Weather conditions</span>
+      <select name="Weatherconditions" required>
+        <option value="Sunny">Sunny</option>
+        <option value="Stormy" selected>Stormy</option>
+        <option value="Sandstorms">Sandstorms</option>
+        <option value="Cloudy">Cloudy</option>
+        <option value="Fog">Fog</option>
+        <option value="Windy">Windy</option>
+        <option value="Unknown">Unknown</option>
+      </select>
+    </label>
+    <label><span>Type of order</span>
+      <select name="Type_of_order" required>
+        <option value="Snack" selected>Snack</option>
+        <option value="Drinks">Drinks</option>
+        <option value="Buffet">Buffet</option>
+        <option value="Meal">Meal</option>
+      </select>
+    </label>
+
+    <label><span>Type of vehicle</span>
+      <select name="Type_of_vehicle" required>
+        <option value="motorcycle" selected>motorcycle</option>
+        <option value="scooter">scooter</option>
+        <option value="electric_scooter">electric_scooter</option>
+        <option value="bicycle">bicycle</option>
+      </select>
+    </label>
+    <label><span>Festival</span>
+      <select name="Festival" required>
+        <option value="No" selected>No</option>
+        <option value="Yes">Yes</option>
+        <option value="Unknown">Unknown</option>
+      </select>
+    </label>
+
+    <label><span>City</span>
+      <select name="City" required>
+        <option value="Urban">Urban</option>
+        <option value="Metropolitan" selected>Metropolitan</option>
+        <option value="Semi-Urban">Semi-Urban</option>
+        <option value="Unknown">Unknown</option>
+      </select>
+    </label>
+
+    <button type="submit">Predict delivery time</button>
+    <div id="result"></div>
+  </form>
+
+<script>
+  const form = document.getElementById("predict-form");
+  const result = document.getElementById("result");
+
+  const numericFields = new Set([
+    "Delivery_person_Age",
+    "Delivery_person_Ratings",
+    "Restaurant_latitude",
+    "Restaurant_longitude",
+    "Delivery_location_latitude",
+    "Delivery_location_longitude",
+    "Vehicle_condition",
+  ]);
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    result.className = "";
+    result.textContent = "Predicting...";
+    result.style.display = "block";
+
+    const formData = new FormData(form);
+    const payload = {};
+    for (const [key, value] of formData.entries()) {
+      payload[key] = numericFields.has(key) ? Number(value) : value;
+    }
+
+    try {
+      const response = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorBody}`);
+      }
+
+      const data = await response.json();
+      result.className = "ok";
+      result.innerHTML =
+        `Predicted delivery time: <strong>${data.predicted_delivery_time_minutes.toFixed(1)} min</strong>` +
+        `<br><small>${data.model_name} v${data.model_version}</small>`;
+    } catch (err) {
+      result.className = "err";
+      result.textContent = `Prediction failed: ${err.message}`;
+    }
+  });
+</script>
+</body>
+</html>

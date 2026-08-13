@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY params.yaml .
 COPY src/ src/
+COPY static/ static/
 COPY models/preprocessor.joblib models/preprocessor.joblib
 
 # Render assigns a port dynamically via the $PORT env var at container

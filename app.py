@@ -42,12 +42,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Food Delivery Time Prediction API", lifespan=lifespan)
 
 # Optional interview-demo page -- purely static, doesn't touch /predict's
-# logic. Mounted under /static (idiomatic FastAPI static serving) with a
-# /demo alias so it's reachable at the short, memorable path.
+# logic. Mounted under /static (idiomatic FastAPI static serving), served
+# directly at the root path so opening the bare URL shows it immediately.
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-@app.get("/demo")
+@app.get("/")
 def demo_page():
     return FileResponse("static/demo.html")
 

@@ -9,6 +9,9 @@ __pycache__/
 # secrets / local env
 .env
 
+# private study notes, never committed
+INTERVIEW_PREP.md
+
 # Jupyter
 .ipynb_checkpoints/
 

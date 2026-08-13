@@ -17,8 +17,15 @@ COPY params.yaml .
 COPY src/ src/
 COPY models/preprocessor.joblib models/preprocessor.joblib
 
-# Hugging Face Spaces' Docker SDK requires the container to listen on
-# 0.0.0.0:7860 -- a fixed convention, not a dynamic $PORT env var.
-EXPOSE 7860
+# Render assigns a port dynamically via the $PORT env var at container
+# start (unlike HF Spaces' fixed 7860), so EXPOSE here is documentation
+# only -- the default (8000) is just for local `docker run` without $PORT
+# set; Render always provides its own value at runtime.
+EXPOSE 8000
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
+# Exec-form CMD (a JSON array) does NOT go through a shell, so it can't
+# expand $PORT -- Docker would pass the literal string "$PORT" to uvicorn
+# and it would fail trying to bind a port literally named that. Using
+# `sh -c` here makes the substitution actually happen at container start,
+# with a fallback to 8000 for local runs where $PORT isn't set.
+CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}"]
